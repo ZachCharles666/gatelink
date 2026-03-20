@@ -1,0 +1,7 @@
+.env
+.env.local
+*.key
+bin/
+tmp/
+*.log
+.DS_Store
