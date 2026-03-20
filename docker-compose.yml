@@ -3,24 +3,24 @@ version: '3.9'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: TokenGlide_postgres
+    container_name: GateLink_postgres
     environment:
-      POSTGRES_USER: TokenGlide
+      POSTGRES_USER: GateLink
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: TokenGlide
+      POSTGRES_DB: GateLink
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U TokenGlide"]
+      test: ["CMD-SHELL", "pg_isready -U GateLink"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: TokenGlide_redis
+    container_name: GateLink_redis
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
@@ -36,13 +36,13 @@ services:
     build:
       context: ./engine
       dockerfile: Dockerfile
-    container_name: TokenGlide_engine
+    container_name: GateLink_engine
     ports:
       - "8081:8081"
     env_file:
       - ./engine/.env
     environment:
-      - DATABASE_URL=postgres://TokenGlide:password@postgres:5432/TokenGlide?sslmode=disable
+      - DATABASE_URL=postgres://GateLink:password@postgres:5432/GateLink?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       postgres:

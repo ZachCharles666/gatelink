@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/yourname/tokenglide-engine/pkg/adapters"
+	"github.com/yourname/gatelink-engine/pkg/adapters"
 )
 
 const (

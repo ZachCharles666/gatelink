@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yourname/tokenglide-engine/internal/db"
+	"github.com/yourname/gatelink-engine/internal/db"
 )
 
 // PricingDB 从数据库查询模型定价

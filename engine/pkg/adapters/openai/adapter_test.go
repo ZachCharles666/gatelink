@@ -3,8 +3,8 @@ package openai_test
 import (
 	"testing"
 
-	"github.com/yourname/tokenglide-engine/pkg/adapters"
-	"github.com/yourname/tokenglide-engine/pkg/adapters/openai"
+	"github.com/yourname/gatelink-engine/pkg/adapters"
+	"github.com/yourname/gatelink-engine/pkg/adapters/openai"
 )
 
 func TestFormatRequest_StandardFormat(t *testing.T) {

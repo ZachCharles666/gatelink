@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/yourname/tokenglide-engine/pkg/adapters"
-	"github.com/yourname/tokenglide-engine/pkg/adapters/anthropic"
+	"github.com/yourname/gatelink-engine/pkg/adapters"
+	"github.com/yourname/gatelink-engine/pkg/adapters/anthropic"
 )
 
 func TestFormatRequest_ExtractsSystemMessage(t *testing.T) {

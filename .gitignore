@@ -1,7 +1,43 @@
+# Environment
 .env
 .env.local
+.env.*.local
+
+# Secrets
 *.key
+*.pem
+*.p12
+
+# Build output
 bin/
-tmp/
+dist/
+engine/bin/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
+coverage.out
+coverage.html
+*.test
+*.prof
+
+# Logs
 *.log
+logs/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp
+tmp/

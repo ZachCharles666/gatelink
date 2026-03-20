@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/yourname/tokenglide-engine/internal/db"
+	"github.com/yourname/gatelink-engine/internal/db"
 )
 
 func TestDatabaseConnection(t *testing.T) {

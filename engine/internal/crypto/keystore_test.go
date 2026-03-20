@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yourname/tokenglide-engine/internal/crypto"
+	"github.com/yourname/gatelink-engine/internal/crypto"
 )
 
 const testKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
