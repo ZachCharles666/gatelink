@@ -32,6 +32,40 @@ import (
 	qwenadapter "github.com/yourname/gatelink-engine/pkg/adapters/qwen"
 )
 
+// warmupPool 启动时从 DB 加载所有 active 账号到 Redis pool，确保重启后调度池不为空
+func warmupPool(ctx context.Context, dbPool *db.Pool, pool *scheduler.Pool) {
+	rows, err := dbPool.Query(ctx, `
+		SELECT id, seller_id, vendor, api_key_encrypted,
+		       authorized_credits_usd, health_score
+		FROM accounts
+		WHERE status = 'active' AND expire_at > NOW()`)
+	if err != nil {
+		log.Warn().Err(err).Msg("pool warmup: failed to query accounts")
+		return
+	}
+	defer rows.Close()
+
+	var count int
+	for rows.Next() {
+		var info scheduler.AccountInfo
+		var healthScore float64
+		if err := rows.Scan(&info.ID, &info.SellerID, &info.Vendor,
+			&info.EncryptedKey, &info.BalanceUSD, &healthScore); err != nil {
+			continue
+		}
+		info.Health = healthScore
+		info.Status = "active"
+		info.RPMLimit = 60
+		info.Score = healthScore
+		if err := pool.Upsert(ctx, &info); err != nil {
+			log.Warn().Err(err).Str("account_id", info.ID).Msg("pool warmup: upsert failed")
+			continue
+		}
+		count++
+	}
+	log.Info().Int("count", count).Msg("pool warmup: loaded active accounts into Redis")
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Warn().Msg(".env file not found, using system env")
@@ -68,6 +102,9 @@ func main() {
 	// 账号池 + 调度引擎
 	pool := scheduler.NewPool(redisClient)
 	engine := scheduler.NewEngine(pool)
+
+	// 启动时预热：从 DB 加载所有活跃账号到 Redis，覆盖 engine 重启后池子为空的情况
+	warmupPool(ctx, dbPool, pool)
 
 	// 健康度系统
 	healthScorer := health.NewScorer(dbPool, redisClient)

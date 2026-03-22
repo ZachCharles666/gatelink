@@ -265,7 +265,7 @@ func (h *AccountsHandler) HandleCreate(c *gin.Context) {
 		return
 	}
 
-	// 4. 写入 Redis 调度池（失败只记警告，不回滚 DB —— 账号已落库，可后续恢复）
+	// 4. 写入 Redis 调度池；失败时回滚 DB，保持 DB 与 pool 一致
 	upsertErr := h.pool.Upsert(ctx, &scheduler.AccountInfo{
 		ID:           accountID,
 		SellerID:     req.SellerID,
@@ -278,7 +278,12 @@ func (h *AccountsHandler) HandleCreate(c *gin.Context) {
 		Score:        80,
 	})
 	if upsertErr != nil {
-		log.Warn().Err(upsertErr).Str("account_id", accountID).Msg("pool upsert failed, account is in DB but not yet in pool")
+		log.Error().Err(upsertErr).Str("account_id", accountID).Msg("pool upsert failed, rolling back DB insert")
+		if _, delErr := h.db.Exec(ctx, "DELETE FROM accounts WHERE id = $1", accountID); delErr != nil {
+			log.Error().Err(delErr).Str("account_id", accountID).Msg("rollback delete failed, account stuck in DB without pool entry")
+		}
+		InternalError(c)
+		return
 	}
 
 	OK(c, gin.H{
