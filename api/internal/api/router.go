@@ -7,10 +7,17 @@ import (
 	"github.com/ZachCharles666/gatelink/api/internal/proxy"
 	"github.com/ZachCharles666/gatelink/api/internal/response"
 	"github.com/ZachCharles666/gatelink/api/internal/seller"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRoutes(r *gin.Engine, sellerH *seller.Handler, buyerH *buyer.Handler, adminH *admin.Handler, proxyH *proxy.Handler, buyerRepo auth.BuyerRepo) {
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 	r.GET("/health", func(c *gin.Context) {
 		response.OK(c, gin.H{
 			"service": "api",
