@@ -12,6 +12,8 @@
 bin/
 dist/
 engine/bin/
+.next/
+node_modules/
 
 # Go
 *.exe
