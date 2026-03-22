@@ -9,6 +9,52 @@ import (
 	"testing"
 )
 
+func TestCreateAccountSupportsReferenceShape(t *testing.T) {
+	client := newTestClient(t, func(r *http.Request) (*http.Response, error) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("unexpected method: %s", r.Method)
+		}
+		if r.URL.Path != "/internal/v1/accounts" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+
+		var req CreateAccountRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.SellerID != "seller-1" || req.Vendor != "anthropic" {
+			t.Fatalf("unexpected request payload: %#v", req)
+		}
+
+		return jsonResponse(map[string]any{
+			"code": 0,
+			"msg":  "ok",
+			"data": map[string]any{
+				"account_id":   "acc-1",
+				"api_key_hint": "sk-ant-***",
+				"vendor":       "anthropic",
+				"status":       "active",
+			},
+		}), nil
+	})
+
+	result, err := client.CreateAccount(context.Background(), CreateAccountRequest{
+		SellerID:             "seller-1",
+		Vendor:               "anthropic",
+		APIKey:               "sk-ant-test",
+		TotalCreditsUSD:      100,
+		AuthorizedCreditsUSD: 50,
+		ExpectedRate:         0.75,
+		ExpireAt:             "2027-01-01T00:00:00Z",
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount returned error: %v", err)
+	}
+	if result.AccountID != "acc-1" || result.Status != "active" || result.APIKeyHint != "sk-ant-***" {
+		t.Fatalf("unexpected create account result: %#v", result)
+	}
+}
+
 func TestGetAccountDiffSupportsReferenceShape(t *testing.T) {
 	client := newTestClient(t, func(r *http.Request) (*http.Response, error) {
 		if r.URL.Path != "/internal/v1/accounts/acc-1/diff" {

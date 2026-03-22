@@ -5,8 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"net/http"
 	"strconv"
 	"sync"
 
@@ -17,7 +15,7 @@ import (
 )
 
 type engineAPI interface {
-	VerifyAccount(ctx context.Context, accountID, apiKey string) (*engineclient.VerifyResult, error)
+	CreateAccount(ctx context.Context, req engineclient.CreateAccountRequest) (*engineclient.CreateAccountResult, error)
 	GetAccountHealth(ctx context.Context, accountID string) (*engineclient.AccountHealth, error)
 	GetConsoleUsage(ctx context.Context, accountID string) (*engineclient.ConsoleUsage, error)
 	GetAccountDiff(ctx context.Context, accountID string) (*engineclient.DiffResult, error)
@@ -142,13 +140,44 @@ func (h *Handler) AddAccount(c *gin.Context) {
 		return
 	}
 
-	accountID, err := h.svc.PreCreateAccount(
+	if h.engine == nil {
+		response.InternalError(c)
+		return
+	}
+
+	totalCreditsUSD := req.TotalCreditsUSD
+	if totalCreditsUSD <= 0 {
+		totalCreditsUSD = req.AuthorizedCreditsUSD
+	}
+
+	createResult, err := h.engine.CreateAccount(c.Request.Context(), engineclient.CreateAccountRequest{
+		SellerID:             sellerID,
+		Vendor:               req.Vendor,
+		APIKey:               req.APIKey,
+		TotalCreditsUSD:      totalCreditsUSD,
+		AuthorizedCreditsUSD: req.AuthorizedCreditsUSD,
+		ExpectedRate:         req.ExpectedRate,
+		ExpireAt:             req.ExpireAt,
+	})
+	if err != nil {
+		var engineErr *engineclient.EngineError
+		if errors.As(err, &engineErr) && engineErr.Code == response.CodeInvalidParam {
+			response.BadRequest(c, engineErr.Msg)
+			return
+		}
+		response.InternalError(c)
+		return
+	}
+
+	account, err := h.svc.AddAccount(
 		c.Request.Context(),
+		createResult.AccountID,
 		sellerID,
 		req.Vendor,
+		createResult.Status,
 		req.AuthorizedCreditsUSD,
 		req.ExpectedRate,
-		req.TotalCreditsUSD,
+		totalCreditsUSD,
 		req.ExpireAt,
 	)
 	if err != nil {
@@ -160,33 +189,12 @@ func (h *Handler) AddAccount(c *gin.Context) {
 		return
 	}
 
-	if h.engine == nil {
-		_ = h.svc.DeleteAccount(c.Request.Context(), accountID)
-		response.InternalError(c)
-		return
-	}
-
-	verifyResult, err := h.engine.VerifyAccount(c.Request.Context(), accountID, req.APIKey)
-	if err != nil {
-		_ = h.svc.DeleteAccount(c.Request.Context(), accountID)
-		if engineclient.IsNotFound(err) {
-			response.Fail(c, http.StatusServiceUnavailable, response.CodeInternalError, "engine verify requires shared account persistence before live verification")
-			return
-		}
-		response.InternalError(c)
-		return
-	}
-	if !verifyResult.Valid {
-		_ = h.svc.DeleteAccount(c.Request.Context(), accountID)
-		response.BadRequest(c, fmt.Sprintf("API Key format check failed: %s", verifyErrorMessage(verifyResult)))
-		return
-	}
-
 	response.OK(c, gin.H{
-		"account_id":   accountID,
-		"health_score": 80,
-		"status":       "pending_verify",
-		"message":      "格式检查通过，账号验证中。建议发起一次测试请求验证 Key 实际有效性。",
+		"account_id":   account.ID,
+		"api_key_hint": createResult.APIKeyHint,
+		"health_score": account.HealthScore,
+		"status":       account.Status,
+		"message":      "账号已创建并入池。是否可用需后续单独执行 verify 或发起一次测试请求确认。",
 	})
 }
 
@@ -405,13 +413,6 @@ func (h *Handler) ensureOwnership(c *gin.Context, accountID, sellerID string) bo
 	}
 
 	return false
-}
-
-func verifyErrorMessage(result *engineclient.VerifyResult) string {
-	if result == nil || result.ErrorMsg == "" {
-		return "unknown verify error"
-	}
-	return result.ErrorMsg
 }
 
 func getHealthScore(health *engineclient.AccountHealth) int {

@@ -51,6 +51,90 @@ go mod tidy -go=1.22 -compat=1.22
 
 修复后 [api/go.mod](/Users/tvwoo/Projects/gatelink/api/go.mod) 已回到 `Go 1.22` 兼容范围，关键 indirect 依赖也回落到与 `gin v1.10.1` 对齐的版本集合，可继续与 Dev-A 的 `Go 1.22` 规划保持一致。
 
+### 2026-03-22 · Issue 004 · Seller AddAccount 已切换到 `POST /internal/v1/accounts`
+
+- 状态：Dev-B 侧已完成，待 review / merge
+- 影响范围：`POST /api/v1/seller/accounts`、卖家添加账号页、seller 相关测试
+- 依据：
+  - [accounts.go](/Users/tvwoo/Projects/gatelink/engine/internal/api/accounts.go)
+  - [main.go](/Users/tvwoo/Projects/gatelink/engine/cmd/engine/main.go)
+  - `origin/main` 的 `ac88f18`、`b9802bf`
+
+#### 现状
+
+Dev-A 已在 `engine` 主干中提供：
+
+1. `POST /internal/v1/accounts`
+   - engine 接收明文 `api_key`
+   - engine 负责加密、写 `accounts` 表、写入 Redis 调度池
+   - 返回 `account_id`、`api_key_hint`、`vendor`、`status`
+2. pool 失败语义已修正
+   - 若 Redis `Upsert` 失败，会回滚刚插入的 DB 记录并返回 `500`
+   - engine 启动时会从 DB 预热 `active` 账号到 Redis pool
+
+因此现在 `CreateAccount` 的成功语义已经明确为：
+- DB 与 Redis pool 都 ready
+- 返回 `status=active`
+
+#### Dev-B 已完成的改动
+
+Dev-B 已在本地增量分支完成对接：
+
+- `seller AddAccount` 不再走“本地预创建 account_id + POST /internal/v1/accounts/:id/verify”
+- 改为直接调用 `POST /internal/v1/accounts`
+- 使用返回的 `account_id` 写入 Dev-B 自己的 seller 业务层
+- 前端卖家添加账号页已改成：
+  - 创建成功 = 账号已创建并入池
+  - key 有效性验证与创建流程分离
+  - 成功提示展示 `api_key_hint`
+
+对应文件：
+- [client.go](/Users/tvwoo/Projects/gatelink/api/internal/engine/client.go)
+- [handler.go](/Users/tvwoo/Projects/gatelink/api/internal/seller/handler.go)
+- [service.go](/Users/tvwoo/Projects/gatelink/api/internal/seller/service.go)
+- [handler_test.go](/Users/tvwoo/Projects/gatelink/api/internal/seller/handler_test.go)
+- [client_test.go](/Users/tvwoo/Projects/gatelink/api/internal/engine/client_test.go)
+- [seller.ts](/Users/tvwoo/Projects/gatelink/web/lib/api/seller.ts)
+- [page.tsx](/Users/tvwoo/Projects/gatelink/web/app/seller/accounts/add/page.tsx)
+
+#### 已确认并接受的语义
+
+1. `HandleCreate` 是“注册即信任”语义，不在创建时做 key 有效性验证
+2. 若需真正验证 key 是否可用，后续再单独调用 `POST /internal/v1/accounts/:id/verify`
+3. Dev-B 不接触 `api_key_encrypted`
+
+#### Dev-B 本地验证结果
+
+已通过：
+
+```bash
+cd /Users/tvwoo/Projects/gatelink/api
+env GOCACHE=/tmp/gatelink-go-build GOTOOLCHAIN=go1.25.8+auto go build ./...
+env GOCACHE=/tmp/gatelink-go-build GOTOOLCHAIN=go1.25.8+auto go test ./...
+env GOCACHE=/tmp/gatelink-go-build GOTOOLCHAIN=go1.25.8+auto bash ./scripts/week2_verify.sh
+
+cd /Users/tvwoo/Projects/gatelink/web
+npm run build
+WEB_BASE_URL=http://127.0.0.1:3301 WEB_HOST=127.0.0.1 WEB_PORT=3301 bash /Users/tvwoo/Projects/gatelink/api/scripts/week6_verify.sh
+```
+
+结果：
+- 后端全量编译通过
+- 后端全量测试通过
+- Week 2 seller 验收通过
+- 前端构建通过
+- Week 6 前端验收通过
+
+#### 需要 Dev-A 知道的点
+
+这轮不需要 Dev-A 再改单机 `engine` 逻辑；主要需要：
+
+1. review Dev-B 侧这次对接改造
+2. 合并后若进入 live 联调，记住：
+   - 创建成功不等于 key 已验证通过
+   - verify 仍然是后续单独动作
+3. 若后续要改变 `POST /internal/v1/accounts` 的返回字段或状态语义，请提前同步 Dev-B，因为前端成功提示现在已依赖 `api_key_hint` 和 `status`
+
 ---
 
 ## 待 Dev-A 接手事项

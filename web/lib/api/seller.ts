@@ -58,7 +58,7 @@ export type AddAccountRequest = {
 
 export type AddAccountResponse = {
   account_id: string;
-  health_score: number;
+  api_key_hint?: string;
   status: string;
   message: string;
 };

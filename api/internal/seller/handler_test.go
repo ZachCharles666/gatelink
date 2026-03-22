@@ -34,11 +34,12 @@ func (f fakeSettlement) RequestSettlement(ctx context.Context, sellerID string) 
 
 type fakeEngine struct{}
 
-func (fakeEngine) VerifyAccount(_ context.Context, accountID, _ string) (*engineclient.VerifyResult, error) {
-	return &engineclient.VerifyResult{
-		AccountID: accountID,
-		Vendor:    "anthropic",
-		Valid:     true,
+func (fakeEngine) CreateAccount(_ context.Context, req engineclient.CreateAccountRequest) (*engineclient.CreateAccountResult, error) {
+	return &engineclient.CreateAccountResult{
+		AccountID:  "eng-account-1",
+		APIKeyHint: "sk-ant-***",
+		Vendor:     req.Vendor,
+		Status:     "active",
 	}, nil
 }
 
@@ -79,21 +80,21 @@ func (fakeEngine) GetAccountDiff(_ context.Context, accountID string) (*enginecl
 	}, nil
 }
 
-type fakeVerifyNotFoundEngine struct{}
+type fakeCreateInvalidParamEngine struct{}
 
-func (fakeVerifyNotFoundEngine) VerifyAccount(_ context.Context, _, _ string) (*engineclient.VerifyResult, error) {
-	return nil, &engineclient.EngineError{Code: response.CodeNotFound, Msg: "account not found"}
+func (fakeCreateInvalidParamEngine) CreateAccount(_ context.Context, _ engineclient.CreateAccountRequest) (*engineclient.CreateAccountResult, error) {
+	return nil, &engineclient.EngineError{Code: response.CodeInvalidParam, Msg: "unsupported vendor: unsupported"}
 }
 
-func (fakeVerifyNotFoundEngine) GetAccountHealth(_ context.Context, accountID string) (*engineclient.AccountHealth, error) {
+func (fakeCreateInvalidParamEngine) GetAccountHealth(_ context.Context, accountID string) (*engineclient.AccountHealth, error) {
 	return nil, errors.New("not used in this test: " + accountID)
 }
 
-func (fakeVerifyNotFoundEngine) GetConsoleUsage(_ context.Context, accountID string) (*engineclient.ConsoleUsage, error) {
+func (fakeCreateInvalidParamEngine) GetConsoleUsage(_ context.Context, accountID string) (*engineclient.ConsoleUsage, error) {
 	return nil, errors.New("not used in this test: " + accountID)
 }
 
-func (fakeVerifyNotFoundEngine) GetAccountDiff(_ context.Context, accountID string) (*engineclient.DiffResult, error) {
+func (fakeCreateInvalidParamEngine) GetAccountDiff(_ context.Context, accountID string) (*engineclient.DiffResult, error) {
 	return nil, errors.New("not used in this test: " + accountID)
 }
 
@@ -125,8 +126,11 @@ func TestSellerWeek2Flow(t *testing.T) {
 	}
 	accountData := accountResp["data"].(map[string]any)
 	accountID := accountData["account_id"].(string)
-	if accountData["status"] != "pending_verify" {
+	if accountData["status"] != "active" {
 		t.Fatalf("unexpected account status: %#v", accountData)
+	}
+	if accountData["api_key_hint"] != "sk-ant-***" {
+		t.Fatalf("unexpected api key hint: %#v", accountData)
 	}
 
 	authResp := performJSONRequest(t, router, http.MethodPatch, "/api/v1/seller/accounts/"+accountID+"/authorization", token, map[string]any{
@@ -246,13 +250,13 @@ func TestSellerAccountForbiddenForOtherSeller(t *testing.T) {
 	}
 }
 
-func TestSellerAddAccountReportsSharedPersistenceRequirement(t *testing.T) {
+func TestSellerAddAccountPropagatesEngineBadRequest(t *testing.T) {
 	t.Setenv("JWT_SECRET", "test-secret")
 	gin.SetMode(gin.TestMode)
 
 	svc := NewService()
 	settlementSvc := fakeSettlement{svc: svc}
-	handler := NewHandler(svc, settlementSvc, fakeVerifyNotFoundEngine{})
+	handler := NewHandler(svc, settlementSvc, fakeCreateInvalidParamEngine{})
 	seller, err := svc.Register(context.Background(), "13900000003", "Seller C")
 	if err != nil {
 		t.Fatalf("register seller: %v", err)
@@ -268,18 +272,18 @@ func TestSellerAddAccountReportsSharedPersistenceRequirement(t *testing.T) {
 		"expire_at":              "2026-09-01T00:00:00Z",
 	})
 
-	if recorder.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503, got %d with body %s", recorder.Code, recorder.Body.String())
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %s", recorder.Code, recorder.Body.String())
 	}
 
 	var resp map[string]any
 	if err := json.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp["code"].(float64) != float64(response.CodeInternalError) {
+	if resp["code"].(float64) != float64(response.CodeInvalidParam) {
 		t.Fatalf("unexpected response payload: %#v", resp)
 	}
-	if resp["msg"] != "engine verify requires shared account persistence before live verification" {
+	if resp["msg"] != "unsupported vendor: unsupported" {
 		t.Fatalf("unexpected response message: %#v", resp)
 	}
 }

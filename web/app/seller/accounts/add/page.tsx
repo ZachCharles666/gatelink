@@ -92,7 +92,7 @@ export default function AddAccountPage() {
   return (
     <SellerConsoleShell
       title="添加托管账号"
-      subtitle="这里直接对接 `POST /api/v1/seller/accounts`。MVP 阶段会先做格式检查和卖家侧记录，真实 live verify 仍受共享 accounts/engine 池状态影响。"
+      subtitle="这里直接对接 `POST /api/v1/seller/accounts`。提交成功代表 engine 已完成加密存储、写库并入池；Key 的真实可用性验证与创建流程分离。"
       actions={
         <Link className="console-secondary" href="/seller/dashboard">
           返回控制台
@@ -101,8 +101,8 @@ export default function AddAccountPage() {
     >
       <section className="console-stack">
         <div className="console-alert console-alert--warn">
-          当前账号接入链路会先经过格式检查。若出现 “engine verify requires shared account persistence before live verification”，说明是共享
-          `accounts` / engine 联调状态未就绪，不是表单字段格式错误。
+          创建成功表示账号已进入 engine 的托管链路，并不等于厂商侧 Key 已完成有效性验证。若需要确认可用性，请后续单独执行 verify
+          或发起一次测试请求。
         </div>
 
         <section className="console-panel">
@@ -200,8 +200,13 @@ export default function AddAccountPage() {
             {error ? <div className="console-alert console-alert--error">{error}</div> : null}
             {result ? (
               <div className="console-alert console-alert--success">
-                {result.message} 当前账号 ID：<strong>{result.account_id}</strong>，状态：{result.status}，健康度：
-                {result.health_score}。正在返回控制台。
+                {result.message} 当前账号 ID：<strong>{result.account_id}</strong>，状态：{result.status}
+                {result.api_key_hint ? (
+                  <>
+                    ，展示指纹：<strong>{result.api_key_hint}</strong>
+                  </>
+                ) : null}
+                。正在返回控制台。
               </div>
             ) : null}
 
