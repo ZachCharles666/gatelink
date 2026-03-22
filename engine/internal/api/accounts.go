@@ -242,7 +242,17 @@ func (h *AccountsHandler) HandleCreate(c *gin.Context) {
 	}
 	hint := crypto.Hint(req.APIKey)
 
-	// 3. 写入 accounts 表
+	// 3. 确保 seller 在 engine DB 中存在（满足 FK 约束；seller 完整档案由 api 服务管理）
+	if _, err := h.db.Exec(ctx,
+		`INSERT INTO sellers (id, status) VALUES ($1, 'active') ON CONFLICT (id) DO NOTHING`,
+		req.SellerID,
+	); err != nil {
+		log.Error().Err(err).Str("seller_id", req.SellerID).Msg("upsert seller stub failed")
+		InternalError(c)
+		return
+	}
+
+	// 4. 写入 accounts 表
 	expectedRate := req.ExpectedRate
 	if expectedRate == 0 {
 		expectedRate = 0.75
@@ -265,7 +275,7 @@ func (h *AccountsHandler) HandleCreate(c *gin.Context) {
 		return
 	}
 
-	// 4. 写入 Redis 调度池；失败时回滚 DB，保持 DB 与 pool 一致
+	// 5. 写入 Redis 调度池；失败时回滚 DB，保持 DB 与 pool 一致
 	upsertErr := h.pool.Upsert(ctx, &scheduler.AccountInfo{
 		ID:           accountID,
 		SellerID:     req.SellerID,
