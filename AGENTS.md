@@ -20,12 +20,13 @@
 ## 二、铁律（无例外，不得违反）
 
 1. **永远不要修改、创建 `/Users/tvwoo/Projects/gatelink/engine/` 下的任何文件；如需核对内部接口，只允许只读查看必要实现**
-2. **永远不要写入 `usage_records` 表**（Dev-A 在 dispatch 后自动写入）
-3. **永远不要读取或写入 `accounts.api_key_encrypted` 字段**
-4. **流式请求必须等流结束后才能记账**，严禁在流过程中扣款
-5. **内部接口格式以本仓库 `engine/internal/api/` 实现为准，联调差异记录以 `docs/dev-b/DEV_A_HANDOFF.md` 为准**
-6. **所有代码文件必须写在第三节定义的目录结构内，不得在此之外创建文件**
-7. **所有对 engine:8081 的调用必须通过 `api/internal/engine/client.go`，不得在其他包直接发 HTTP**
+2. **如需获取 Dev-A 的最新代码，只允许通过 Git 远端同步（fetch/pull）；禁止本地手工编辑 `engine/` 代码后再提交**
+3. **永远不要写入 `usage_records` 表**（Dev-A 在 dispatch 后自动写入）
+4. **永远不要读取或写入 `accounts.api_key_encrypted` 字段**
+5. **流式请求必须等流结束后才能记账**，严禁在流过程中扣款
+6. **内部接口格式以本仓库 `engine/internal/api/` 实现为准，联调差异记录以 `docs/dev-b/DEV_A_HANDOFF.md` 为准**
+7. **所有代码文件必须写在第三节定义的目录结构内，不得在此之外创建文件**
+8. **所有对 engine:8081 的调用必须通过 `api/internal/engine/client.go`，不得在其他包直接发 HTTP**
 
 ---
 

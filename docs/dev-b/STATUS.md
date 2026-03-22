@@ -3,7 +3,7 @@
 ## 当前状态
 
 **当前 Phase：Phase 8 · Week 8**
-**当前 Day：Phase 8 · Week 8 · 全部完成**
+**当前 Day：Phase 8 · Week 8 · 全部完成（后续增量：Seller AddAccount 已切到 engine CreateAccount 流）**
 
 ---
 
@@ -73,6 +73,7 @@
 - 2026-03-22：Week 7 管理后台页已按真实 `admin` handler 对齐；其中账号强制暂停接口真实需要 `account_id`，不能直接用 `seller_id` 代替，前端已改为手动输入真实账号 ID 后再执行。
 - 2026-03-22：Week 8 Day 3 的 `load_test.sh` 已支持 `ab/hey` 双路径。本机未安装 `hey`，但已使用系统自带 `ab` 完成真实压测，并输出 `/tmp/load_test_report.txt`。
 - 2026-03-22：Week 8 Day 4-5 的 `mvp_verify.sh` 已通过 `MVP_VERIFY_MODE=test` 与 `MVP_VERIFY_MODE=live` 双重验收。为完成 live DB 校验，这轮已将 `api/internal/db/migrations/001_topup_records.sql` 执行到本地 GateLink PostgreSQL；当前 `buyers`、`sellers`、`settlements`、`topup_records` 已在本地 live 库中存在。
+- 2026-03-22：`engine` 主干已新增 `POST /internal/v1/accounts`，并在 `b9802bf` 中补齐“pool upsert 失败回滚 DB + 启动预热 active 账号”语义。Dev-B 已在增量分支将 seller `AddAccount` 切换到该新接口；当前成功语义是“账号已创建并入池”，但 **不等于 key 已完成有效性验证**，verify 仍需后续单独执行。详见 `docs/dev-b/DEV_A_HANDOFF.md`。
 
 ---
 
@@ -209,3 +210,17 @@ Phase 2 · Week 2 · Day 5 当前状态：
 - Dev-B 规划内 Phase 1 - Phase 8 已全部完成
 - 本地代码验收、Docker 构建、真实压测、MVP live 验收均已跑通
 - Week 2 / Week 3 中那些与 Dev-A 共享环境强相关的历史阻塞，已在本地 Week 8 live 验收里尽可能打通；后续若进入正式交付阶段，重点转向与 Dev-A 合库/共享环境一致性确认
+
+后续增量进展：
+- 已基于 `origin/main` 的 `ac88f18`、`b9802bf` 完成 seller `AddAccount` 对接改造
+- 当前增量工作分支：`codex/dev-b-add-account-engine-create`
+- Dev-B 已将创建链路从“本地预创建 + verify”切换为“直接调用 `POST /internal/v1/accounts` + 本地落业务层”
+- 已通过：
+  - `go build ./...`
+  - `go test ./...`
+  - `bash api/scripts/week2_verify.sh`
+  - `npm run build`
+  - `bash api/scripts/week6_verify.sh`
+- 当前待办：
+  - review 本次增量 diff
+  - 需要时提交 / 推送该增量分支

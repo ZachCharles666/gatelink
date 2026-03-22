@@ -147,36 +147,19 @@ func (s *Service) PreCreateAccount(_ context.Context, sellerID, vendor string, a
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, ok := s.byID[sellerID]; !ok {
-		return "", errSellerNotFound
-	}
-
-	expireTime, err := time.Parse(time.RFC3339, expireAt)
-	if err != nil {
-		return "", errInvalidExpireAt
-	}
-	if totalCreditsUSD <= 0 {
-		totalCreditsUSD = authorizedCreditsUSD
-	}
-
-	now := time.Now().UTC().Format(time.RFC3339)
 	accountID := newID()
-	s.accounts[accountID] = &Account{
-		ID:                   accountID,
-		SellerID:             sellerID,
-		Vendor:               vendor,
-		Status:               "pending_verify",
-		HealthScore:          80,
-		AuthorizedCreditsUSD: authorizedCreditsUSD,
-		ConsumedCreditsUSD:   0,
-		TotalCreditsUSD:      totalCreditsUSD,
-		ExpectedRate:         expectedRate,
-		ExpireAt:             expireTime.UTC().Format(time.RFC3339),
-		CreatedAt:            now,
-		UpdatedAt:            now,
+	if _, err := s.addAccountLocked(accountID, sellerID, vendor, "pending_verify", authorizedCreditsUSD, expectedRate, totalCreditsUSD, expireAt); err != nil {
+		return "", err
 	}
 
 	return accountID, nil
+}
+
+func (s *Service) AddAccount(_ context.Context, accountID, sellerID, vendor, status string, authorizedCreditsUSD, expectedRate, totalCreditsUSD float64, expireAt string) (*Account, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.addAccountLocked(accountID, sellerID, vendor, status, authorizedCreditsUSD, expectedRate, totalCreditsUSD, expireAt)
 }
 
 func (s *Service) DeleteAccount(_ context.Context, accountID string) error {
@@ -518,6 +501,45 @@ func cloneAccount(account *Account) *Account {
 
 	copy := *account
 	return &copy
+}
+
+func (s *Service) addAccountLocked(accountID, sellerID, vendor, status string, authorizedCreditsUSD, expectedRate, totalCreditsUSD float64, expireAt string) (*Account, error) {
+	if _, ok := s.byID[sellerID]; !ok {
+		return nil, errSellerNotFound
+	}
+
+	expireTime, err := time.Parse(time.RFC3339, expireAt)
+	if err != nil {
+		return nil, errInvalidExpireAt
+	}
+	if totalCreditsUSD <= 0 {
+		totalCreditsUSD = authorizedCreditsUSD
+	}
+	if expectedRate <= 0 {
+		expectedRate = 0.75
+	}
+	if status == "" {
+		status = "active"
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	account := &Account{
+		ID:                   accountID,
+		SellerID:             sellerID,
+		Vendor:               vendor,
+		Status:               status,
+		HealthScore:          80,
+		AuthorizedCreditsUSD: authorizedCreditsUSD,
+		ConsumedCreditsUSD:   0,
+		TotalCreditsUSD:      totalCreditsUSD,
+		ExpectedRate:         expectedRate,
+		ExpireAt:             expireTime.UTC().Format(time.RFC3339),
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+	s.accounts[accountID] = account
+
+	return cloneAccount(account), nil
 }
 
 func (s *Service) findSettlementLocked(settlementID string) (*Settlement, *Seller, error) {

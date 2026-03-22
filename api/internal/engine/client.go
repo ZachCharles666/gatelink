@@ -128,6 +128,39 @@ type VerifyResult struct {
 	ErrorMsg  string `json:"error_msg"`
 }
 
+type CreateAccountRequest struct {
+	SellerID             string  `json:"seller_id"`
+	Vendor               string  `json:"vendor"`
+	APIKey               string  `json:"api_key"`
+	TotalCreditsUSD      float64 `json:"total_credits_usd"`
+	AuthorizedCreditsUSD float64 `json:"authorized_credits_usd"`
+	ExpectedRate         float64 `json:"expected_rate,omitempty"`
+	ExpireAt             string  `json:"expire_at"`
+}
+
+type CreateAccountResult struct {
+	AccountID  string `json:"account_id"`
+	APIKeyHint string `json:"api_key_hint"`
+	Vendor     string `json:"vendor"`
+	Status     string `json:"status"`
+}
+
+func (c *Client) CreateAccount(ctx context.Context, req CreateAccountRequest) (*CreateAccountResult, error) {
+	resp, err := c.do(ctx, http.MethodPost, "/internal/v1/accounts", req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Code != 0 {
+		return nil, &EngineError{Code: resp.Code, Msg: resp.Msg}
+	}
+
+	var result CreateAccountResult
+	if err := decodeData(resp, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (c *Client) VerifyAccount(ctx context.Context, accountID, apiKey string) (*VerifyResult, error) {
 	resp, err := c.do(ctx, http.MethodPost, "/internal/v1/accounts/"+accountID+"/verify", map[string]string{
 		"api_key": apiKey,
