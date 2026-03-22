@@ -76,7 +76,7 @@ func TestMain(m *testing.M) {
 
 	forwarder := proxy.New(registry, ks, dbPool, engine)
 
-	router := api.New(dbPool, pool, engine, forwarder, registry, classifier, healthScorer)
+	router := api.New(dbPool, pool, engine, forwarder, registry, classifier, healthScorer, ks)
 	testRouter = gin.New()
 	router.Register(testRouter)
 
