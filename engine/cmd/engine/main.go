@@ -107,7 +107,7 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	ginEngine := gin.New()
-	router := api.New(dbPool, pool, engine, forwarder, registry, classifier, healthScorer)
+	router := api.New(dbPool, pool, engine, forwarder, registry, classifier, healthScorer, ks)
 	router.Register(ginEngine)
 
 	port := os.Getenv("ENGINE_PORT")

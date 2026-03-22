@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/yourname/gatelink-engine/internal/audit"
+	"github.com/yourname/gatelink-engine/internal/crypto"
 	"github.com/yourname/gatelink-engine/internal/db"
 	"github.com/yourname/gatelink-engine/internal/health"
 	"github.com/yourname/gatelink-engine/internal/proxy"
@@ -19,6 +20,7 @@ type Router struct {
 	registry   *vendor.Registry
 	classifier *audit.Classifier
 	scorer     *health.Scorer
+	ks         *crypto.Keystore
 }
 
 // New 创建路由器
@@ -30,6 +32,7 @@ func New(
 	registry *vendor.Registry,
 	classifier *audit.Classifier,
 	scorer *health.Scorer,
+	ks *crypto.Keystore,
 ) *Router {
 	return &Router{
 		db:         db,
@@ -39,6 +42,7 @@ func New(
 		registry:   registry,
 		classifier: classifier,
 		scorer:     scorer,
+		ks:         ks,
 	}
 }
 
@@ -48,7 +52,7 @@ func (r *Router) Register(engine *gin.Engine) {
 
 	engine.GET("/health", r.handleHealth)
 
-	accountsH := NewAccountsHandler(r.db, r.scorer, r.registry)
+	accountsH := NewAccountsHandler(r.db, r.pool, r.scorer, r.registry, r.ks)
 	eventsH := NewEventsHandler(r.db)
 
 	internal := engine.Group("/internal/v1", InternalOnly(), r.injectRegistry())
@@ -61,6 +65,7 @@ func (r *Router) Register(engine *gin.Engine) {
 		internal.GET("/pool/status", r.handlePoolStatus)
 
 		// 账号管理
+		internal.POST("/accounts", accountsH.HandleCreate)
 		internal.GET("/accounts/:id/health", accountsH.HandleHealth)
 		internal.POST("/accounts/:id/verify", accountsH.HandleVerify)
 		internal.GET("/accounts/:id/console-usage", accountsH.HandleConsoleUsage)

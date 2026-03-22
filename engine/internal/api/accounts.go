@@ -4,20 +4,25 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
+	"github.com/yourname/gatelink-engine/internal/crypto"
 	"github.com/yourname/gatelink-engine/internal/db"
 	"github.com/yourname/gatelink-engine/internal/health"
+	"github.com/yourname/gatelink-engine/internal/scheduler"
 	"github.com/yourname/gatelink-engine/pkg/adapters"
 )
 
 // AccountsHandler 处理账号相关 API
 type AccountsHandler struct {
-	db      *db.Pool
-	scorer  *health.Scorer
+	db       *db.Pool
+	pool     *scheduler.Pool
+	scorer   *health.Scorer
 	registry *vendor.Registry
+	ks       *crypto.Keystore
 }
 
-func NewAccountsHandler(db *db.Pool, scorer *health.Scorer, registry *vendor.Registry) *AccountsHandler {
-	return &AccountsHandler{db: db, scorer: scorer, registry: registry}
+func NewAccountsHandler(db *db.Pool, pool *scheduler.Pool, scorer *health.Scorer, registry *vendor.Registry, ks *crypto.Keystore) *AccountsHandler {
+	return &AccountsHandler{db: db, pool: pool, scorer: scorer, registry: registry, ks: ks}
 }
 
 // HandleHealth GET /internal/v1/accounts/:id/health
@@ -197,5 +202,89 @@ func (h *AccountsHandler) HandleDiff(c *gin.Context) {
 	OK(c, gin.H{
 		"account_id": accountID,
 		"diffs":      records,
+	})
+}
+
+// CreateAccountRequest POST /internal/v1/accounts 请求体
+type CreateAccountRequest struct {
+	SellerID             string    `json:"seller_id" binding:"required"`
+	Vendor               string    `json:"vendor" binding:"required"`
+	APIKey               string    `json:"api_key" binding:"required"`
+	TotalCreditsUSD      float64   `json:"total_credits_usd" binding:"required"`
+	AuthorizedCreditsUSD float64   `json:"authorized_credits_usd" binding:"required"`
+	ExpectedRate         float64   `json:"expected_rate"`
+	ExpireAt             time.Time `json:"expire_at" binding:"required"`
+}
+
+// HandleCreate POST /internal/v1/accounts
+// 接收明文 api_key，由 engine 加密写库并将账号加入调度池
+func (h *AccountsHandler) HandleCreate(c *gin.Context) {
+	var req CreateAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		BadRequest(c, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// 1. 验证 vendor 合法
+	if _, ok := h.registry.Get(vendor.Vendor(req.Vendor)); !ok {
+		BadRequest(c, "unsupported vendor: "+req.Vendor)
+		return
+	}
+
+	// 2. 加密 api_key（明文只存在于当前栈帧，加密后立即丢弃）
+	encryptedKey, err := h.ks.Encrypt(req.APIKey)
+	if err != nil {
+		log.Error().Err(err).Msg("encrypt api key failed")
+		InternalError(c)
+		return
+	}
+	hint := crypto.Hint(req.APIKey)
+
+	// 3. 写入 accounts 表
+	expectedRate := req.ExpectedRate
+	if expectedRate == 0 {
+		expectedRate = 0.75
+	}
+	var accountID string
+	err = h.db.QueryRow(ctx, `
+		INSERT INTO accounts
+		  (seller_id, vendor, api_key_encrypted, api_key_hint,
+		   total_credits_usd, authorized_credits_usd, consumed_credits_usd,
+		   expected_rate, expire_at, health_score, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, 80, 'active')
+		RETURNING id`,
+		req.SellerID, req.Vendor, encryptedKey, hint,
+		req.TotalCreditsUSD, req.AuthorizedCreditsUSD,
+		expectedRate, req.ExpireAt,
+	).Scan(&accountID)
+	if err != nil {
+		log.Error().Err(err).Str("seller_id", req.SellerID).Msg("insert account failed")
+		InternalError(c)
+		return
+	}
+
+	// 4. 写入 Redis 调度池（失败只记警告，不回滚 DB —— 账号已落库，可后续恢复）
+	upsertErr := h.pool.Upsert(ctx, &scheduler.AccountInfo{
+		ID:           accountID,
+		SellerID:     req.SellerID,
+		Vendor:       req.Vendor,
+		Health:       80,
+		BalanceUSD:   req.AuthorizedCreditsUSD,
+		RPMLimit:     60,
+		Status:       "active",
+		EncryptedKey: encryptedKey,
+		Score:        80,
+	})
+	if upsertErr != nil {
+		log.Warn().Err(upsertErr).Str("account_id", accountID).Msg("pool upsert failed, account is in DB but not yet in pool")
+	}
+
+	OK(c, gin.H{
+		"account_id":   accountID,
+		"api_key_hint": hint,
+		"vendor":       req.Vendor,
+		"status":       "active",
 	})
 }
