@@ -1,6 +1,23 @@
 # GateLink — AI Credits 授权与调度平台
 
+> 当前分支：`dev-b/final-delivery`
+>
+> 这是 Dev-B 的完整交付分支版本，用于向 Dev-A 发起 review / merge。
+> 本分支新增了 `api/`、`web/`、`docs/dev-b/` 与仓库级 `AGENTS.md`。
+> `engine/` 目录仍然是 Dev-A 负责的代码基线，本分支不包含对 `engine/` 的改动。
+
 GateLink 是一个面向企业的 AI 调用授权与调度引擎，负责统一管理多供应商 AI API 的凭证、配额、路由与审计。
+
+## 分支用途
+
+- `main`：Dev-A 当前主干
+- `dev-b/final-delivery`：Dev-B 交付分支
+
+这个分支的主要内容：
+- `api/`：业务 API、买家代理端点、管理员接口、结算与轮询
+- `web/`：卖家/买家/管理后台前端
+- `docs/dev-b/`：开发指南、阶段指令、状态与交接记录
+- `AGENTS.md`：后续开发约束与协作边界
 
 ## 功能特性
 
@@ -42,8 +59,20 @@ GateLink/
 │   │   └── adapters/       # 各 AI 供应商适配器
 │   ├── scripts/            # 数据库迁移脚本
 │   └── tests/              # 集成测试
+├── api/                    # Dev-B 后端服务
+├── web/                    # Dev-B 前端控制台
+├── docs/
+│   └── dev-b/              # Dev-B 规划、状态、交接
 └── docker-compose.yml      # 本地开发环境
 ```
+
+## Dev-B 开发入口
+
+- API 说明：`api/README.md`
+- 前端说明：`web/README.md`
+- 开发指南：`docs/dev-b/GUIDE.md`
+- 当前状态：`docs/dev-b/STATUS.md`
+- 交接记录：`docs/dev-b/DEV_A_HANDOFF.md`
 
 ## 快速开始
 
