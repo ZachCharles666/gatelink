@@ -1,9 +1,22 @@
 # Dev-B 开发进度
 
+> 历史说明：本文档最初用于 Dev-B 独立开发阶段。
+> 自 2026-03-23 起，项目进入统一仓库协作模式，后续日常开发以 `dev -> feat/fix -> dev -> main` 流程为准。
+> 当前团队共用状态板已迁移到：`/Users/tvwoo/Projects/gatelink/STATUS.md`
+
 ## 当前状态
 
-**当前 Phase：Phase 8 · Week 8**
-**当前 Day：Phase 8 · Week 8 · 全部完成（后续增量：Seller AddAccount 已切到 engine CreateAccount 流）**
+**当前 Phase：历史 8 周规划已完成**
+**当前 Day：维护与增量开发阶段（统一仓库协作：从 `dev` 拉 `feat/fix/chore` 分支）**
+
+**协作模式更新（2026-03-23）**
+- `main`：禁止直接 push，只接受来自 `dev` 的 PR
+- `dev`：日常集成分支
+- 功能开发：从 `dev` 拉 `feat/xxx`、`fix/xxx`、`chore/xxx`
+- 合并前通过：
+  - `go build ./...`
+  - `go test ./... -short`
+  - 若当前模块有验收脚本，也一并执行
 
 ---
 
@@ -74,6 +87,7 @@
 - 2026-03-22：Week 8 Day 3 的 `load_test.sh` 已支持 `ab/hey` 双路径。本机未安装 `hey`，但已使用系统自带 `ab` 完成真实压测，并输出 `/tmp/load_test_report.txt`。
 - 2026-03-22：Week 8 Day 4-5 的 `mvp_verify.sh` 已通过 `MVP_VERIFY_MODE=test` 与 `MVP_VERIFY_MODE=live` 双重验收。为完成 live DB 校验，这轮已将 `api/internal/db/migrations/001_topup_records.sql` 执行到本地 GateLink PostgreSQL；当前 `buyers`、`sellers`、`settlements`、`topup_records` 已在本地 live 库中存在。
 - 2026-03-22：`engine` 主干已新增 `POST /internal/v1/accounts`，并在 `b9802bf` 中补齐“pool upsert 失败回滚 DB + 启动预热 active 账号”语义。Dev-B 已在增量分支将 seller `AddAccount` 切换到该新接口；当前成功语义是“账号已创建并入池”，但 **不等于 key 已完成有效性验证**，verify 仍需后续单独执行。详见 `docs/dev-b/DEV_A_HANDOFF.md`。
+- 2026-03-23：浏览器从 `http://localhost:3000` 请求 `http://localhost:8080` 时出现的 `Network Error`，已在 `origin/dev` 的 `94b1337 fix: 添加 CORS 中间件修复前端 Network Error` 中修复。当前本地预览应基于 `dev` 或更新分支重建 `api` / `web` 容器。
 
 ---
 
@@ -222,5 +236,5 @@ Phase 2 · Week 2 · Day 5 当前状态：
   - `npm run build`
   - `bash api/scripts/week6_verify.sh`
 - 当前待办：
-  - review 本次增量 diff
-  - 需要时提交 / 推送该增量分支
+  - 历史 Dev-B 文档逐步过渡到统一团队协作文档
+  - 后续功能开发统一从 `dev` 拉 `feat/*`、`fix/*`、`chore/*` 分支
