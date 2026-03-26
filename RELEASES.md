@@ -3,9 +3,9 @@
 ## 1. 核心原则
 
 本文件描述当前仓库的 GitHub 维护与发布流程。
-它是 **跨版本通用** 的发布规则，不只服务于 `v0.2`。
+它是 **跨版本通用** 的发布规则。
 
-现在已经没有 Dev-A / Dev-B 的边界。
+现在已经没有历史角色边界作为当前开发入口。
 
 这意味着：
 
@@ -70,8 +70,8 @@ git checkout -b feat/xxx
 如果当前 `main` 代表一个明确可交付版本，可以打 tag，例如：
 
 ```bash
-git tag -a v0.2-mvp -m "v0.2 MVP release"
-git push origin v0.2-mvp
+git tag -a v0.3-initial -m "v0.3 initial release"
+git push origin v0.3-initial
 ```
 
 是否打 tag，取决于：
@@ -98,7 +98,7 @@ git push origin v0.2-mvp
 
 你之前发给我的那套流程，现在仍然成立，只是语义已经变成：
 
-- 不是 Dev-A 和 Dev-B 分别维护自己的边界
+- 不是按历史角色分别维护边界
 - 而是两个人共同维护同一个仓库
 - 共同遵守同一套：
   - `dev` 集成

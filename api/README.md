@@ -1,4 +1,4 @@
-# GateLink API Service (Dev-B)
+# GateLink API Service
 
 Business API + buyer proxy endpoint + frontend console.
 
@@ -14,7 +14,7 @@ api/
 │   ├── buyer/        # Buyer business logic
 │   ├── proxy/        # Buyer proxy endpoints (/v1/*)
 │   ├── accounting/   # Billing and settlement
-│   ├── engine/       # Dev-A internal interface client
+│   ├── engine/       # Internal engine interface client
 │   ├── poller/       # Account status DB polling
 │   ├── config/       # Config loading
 │   └── db/           # Database connection + migrations
@@ -29,7 +29,18 @@ cp .env.example .env
 go run ./cmd/api
 ```
 
-## Dev-A Internal API
+## Current Product Docs
+
+- `docs/README.md`
+- `docs/product/CURRENT.md`
+- `docs/product/v0.3/PRD.md`
+- `docs/product/v0.3/BUYER.md`
+- `docs/product/v0.3/PLATFORM_BACKEND.md`
+
+## Internal Engine API
 
 Base URL: `http://engine:8081/internal/v1`
-See: `/Users/tvwoo/Projects/gatelink/engine/internal/api/` and `/Users/tvwoo/Projects/gatelink/docs/dev-b/DEV_A_HANDOFF.md`
+
+Source of truth:
+- `engine/internal/api/`
+- `api/internal/engine/client.go`
